@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obter Temperatura</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        /* Adicione estilos para ajustar o tamanho das imagens */
+        .weather-image {
+            max-width: 100%;
+            height: auto;
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Obter Temperatura</h1>
+
+    <p>Escolha uma opção:</p>
+    
+    <button onclick="obterTemperaturaPorLocalizacao()">Usar Localização Atual</button>
+    
+    <p>OU</p>
+
+    <label for="locationInput">Informe o local:</label>
+    <input type="text" id="locationInput" placeholder="Digite o local">
+    <button onclick="obterTemperaturaPorLocal()">Obter Temperatura</button>
+    
+    <div id="weather-info">
+        <!-- Aqui será exibida a informação meteorológica -->
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
