@@ -1,40 +1,384 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Obter Temperatura</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#2f6fb5">
+  <title>Clima agora</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&display=swap" rel="stylesheet">
+  <style>
+:root {
+  --ceu-topo: #2f6fb5;
+  --ceu-base: #8cc4ee;
+  --tinta: #ffffff;
+  --tinta-suave: rgba(255, 255, 255, .78);
+  --vidro: rgba(255, 255, 255, .16);
+  --vidro-borda: rgba(255, 255, 255, .28);
+  --foco: #ffd166;
+  --raio: 22px;
+}
 
-        /* Adicione estilos para ajustar o tamanho das imagens */
-        .weather-image {
-            max-width: 100%;
-            height: auto;
-        }
+/* O céu muda conforme o tempo */
+body[data-clima="sol"]     { --ceu-topo: #1f7ad6; --ceu-base: #ffcf7a; }
+body[data-clima="nublado"] { --ceu-topo: #5b6f86; --ceu-base: #b7c6d6; }
+body[data-clima="chuva"]   { --ceu-topo: #2a3547; --ceu-base: #6f819a; }
+body[data-clima="noite"]   { --ceu-topo: #0c1530; --ceu-base: #35477a; }
 
-    </style>
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--tinta);
+  background: linear-gradient(175deg, var(--ceu-topo) 0%, var(--ceu-base) 100%) fixed;
+  transition: --ceu-topo .6s, --ceu-base .6s;
+}
+
+@property --ceu-topo { syntax: "<color>"; inherits: true; initial-value: #2f6fb5; }
+@property --ceu-base { syntax: "<color>"; inherits: true; initial-value: #8cc4ee; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+:focus-visible { outline: 3px solid var(--foco); outline-offset: 3px; }
+
+.app {
+  width: min(100%, 1040px);
+  margin: 0 auto;
+  min-height: 100dvh;
+  padding: max(20px, env(safe-area-inset-top)) clamp(16px, 5vw, 48px) max(28px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: clamp(24px, 6vw, 56px);
+}
+
+/* ---------- Busca ---------- */
+.topo { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+.busca {
+  flex: 1 1 280px;
+  display: flex;
+  align-items: center;
+  background: var(--vidro);
+  border: 1px solid var(--vidro-borda);
+  border-radius: 999px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding-left: 20px;
+}
+.busca:focus-within { outline: 3px solid var(--foco); outline-offset: 2px; }
+
+.busca input {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  font: inherit;
+  font-size: 1.05rem;
+  color: var(--tinta);
+  background: none;
+  border: 0;
+  outline: 0;
+}
+.busca input::placeholder { color: var(--tinta-suave); }
+
+.busca__ir, .localizar {
+  font: inherit;
+  color: var(--tinta);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.busca__ir {
+  width: 52px; height: 52px;
+  background: none; border: 0; border-radius: 50%;
+}
+.busca__ir:hover { background: var(--vidro); }
+
+.localizar {
+  gap: 8px;
+  height: 54px;
+  padding: 0 20px;
+  font-weight: 600;
+  background: var(--tinta);
+  color: var(--ceu-topo);
+  border: 0;
+  border-radius: 999px;
+}
+.localizar:hover { filter: brightness(.95); }
+.localizar:active, .busca__ir:active { transform: scale(.97); }
+
+/* ---------- Resultado ---------- */
+.clima { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+
+.vazio { max-width: 22ch; }
+.vazio p { margin: 0; color: var(--tinta-suave); font-size: 1.1rem; }
+.vazio__titulo {
+  color: var(--tinta) !important;
+  font-size: clamp(2.4rem, 9vw, 4.5rem) !important;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.03em;
+  margin-bottom: 16px !important;
+}
+
+.principal {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  align-items: center;
+  animation: entra .7s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.local { margin: 0 0 4px; font-size: clamp(1.1rem, 3.5vw, 1.5rem); font-weight: 500; }
+
+.temp {
+  margin: 0;
+  font-size: clamp(6.5rem, 30vw, 14rem);
+  font-weight: 800;
+  line-height: .85;
+  letter-spacing: -.06em;
+  font-variation-settings: "opsz" 96;
+}
+.temp sup {
+  font-size: .32em;
+  font-weight: 500;
+  letter-spacing: 0;
+  vertical-align: top;
+  position: relative;
+  top: .2em;
+  margin-left: .06em;
+}
+
+.descricao {
+  margin: 14px 0 0;
+  font-size: clamp(1.2rem, 4vw, 1.7rem);
+  font-weight: 400;
+  text-transform: capitalize;
+  color: var(--tinta-suave);
+}
+
+.icone { display: flex; justify-content: center; }
+.weather-image {
+  width: min(62vw, 340px);
+  height: auto;
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, .22));
+}
+.weather-image.flutua { animation: flutua 6s ease-in-out infinite; }
+
+.detalhes {
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.detalhes div {
+  background: var(--vidro);
+  border: 1px solid var(--vidro-borda);
+  border-radius: var(--raio);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 16px 18px;
+}
+.detalhes dt { font-size: .9rem; color: var(--tinta-suave); }
+.detalhes dd { margin: 4px 0 0; font-size: 1.6rem; font-weight: 700; letter-spacing: -.02em; }
+
+.msg { max-width: 30ch; animation: entra .4s both; }
+.msg strong { display: block; font-size: 1.6rem; margin-bottom: 6px; }
+.msg p { margin: 0; color: var(--tinta-suave); }
+
+.carregando { color: var(--tinta-suave); font-size: 1.2rem; }
+
+/* ---------- Telas maiores ---------- */
+@media (min-width: 760px) {
+  .principal { grid-template-columns: 1.1fr 1fr; gap: 40px; }
+  .detalhes { grid-column: 1 / -1; grid-template-columns: repeat(4, 1fr); margin-top: 24px; }
+}
+
+@media (max-width: 420px) {
+  .localizar { flex: 1; }
+  .detalhes div { padding: 14px; }
+  .detalhes dd { font-size: 1.35rem; }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .app { gap: 16px; }
+  .temp { font-size: 5.5rem; }
+}
+
+@keyframes entra {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes flutua {
+  50% { transform: translateY(-10px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
 </head>
-<body>
-    <h1>Obter Temperatura</h1>
+<body data-clima="padrao">
+  <main class="app">
+    <header class="topo">
+      <form class="busca" id="form-busca" role="search">
+        <label for="locationInput" class="visually-hidden">Cidade</label>
+        <input type="text" id="locationInput" placeholder="Buscar cidade" autocomplete="off" enterkeyhint="search">
+        <button type="submit" class="busca__ir" aria-label="Buscar">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </button>
+      </form>
+      <button type="button" class="localizar" id="btn-localizar" aria-label="Usar minha localização">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>
+        <span>Minha localização</span>
+      </button>
+    </header>
 
-    <p>Escolha uma opção:</p>
-    
-    <button onclick="obterTemperaturaPorLocalizacao()">Usar Localização Atual</button>
-    
-    <p>OU</p>
+    <section id="weather-info" class="clima" aria-live="polite">
+      <div class="vazio">
+        <p class="vazio__titulo">Qual é o tempo aí?</p>
+        <p>Busque uma cidade ou use sua localização.</p>
+      </div>
+    </section>
+  </main>
 
-    <label for="locationInput">Informe o local:</label>
-    <input type="text" id="locationInput" placeholder="Digite o local">
-    <button onclick="obterTemperaturaPorLocal()">Obter Temperatura</button>
-    
-    <div id="weather-info">
-        <!-- Aqui será exibida a informação meteorológica -->
-    </div>
+  <script>
+const API_KEY = '836de23f1ea02d9a6742b9e82ceaf570';
+const API_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
-    <script src="script.js"></script>
+const weatherInfoElement = document.getElementById('weather-info');
+const locationInput = document.getElementById('locationInput');
+
+document.getElementById('form-busca').addEventListener('submit', (e) => {
+  e.preventDefault();
+  obterTemperaturaPorLocal();
+});
+document.getElementById('btn-localizar').addEventListener('click', obterTemperaturaPorLocalizacao);
+
+function mostrarMensagem(titulo, texto) {
+  weatherInfoElement.innerHTML = `<div class="msg"><strong>${titulo}</strong><p>${texto}</p></div>`;
+}
+
+function mostrarCarregando() {
+  weatherInfoElement.innerHTML = '<p class="carregando">Buscando o tempo…</p>';
+}
+
+function obterTemperaturaPorLocalizacao() {
+  if (!navigator.geolocation) {
+    mostrarMensagem('Localização indisponível', 'Seu navegador não permite localização. Busque por uma cidade.');
+    return;
+  }
+  mostrarCarregando();
+  navigator.geolocation.getCurrentPosition(
+    (pos) => obterCoordenadas(pos.coords.latitude, pos.coords.longitude),
+    (erro) => {
+      console.error('Erro ao obter localização:', erro.message);
+      const negada = erro.code === 1;
+      mostrarMensagem(
+        negada ? 'Localização bloqueada' : 'Não foi possível obter sua localização',
+        negada ? 'Libere a localização nas permissões do navegador ou busque por uma cidade.' : 'Tente de novo ou busque por uma cidade.'
+      );
+    },
+    { timeout: 10000 }
+  );
+}
+
+function obterTemperaturaPorLocal() {
+  const local = locationInput.value.trim();
+  if (!local) {
+    mostrarMensagem('Digite uma cidade', 'Por exemplo: São Paulo, Recife ou Curitiba.');
+    locationInput.focus();
+    return;
+  }
+  obterCoordenadasPorLocal(local);
+}
+
+function obterCoordenadas(latitude, longitude) {
+  buscarClima(`${API_URL}?lat=${latitude}&lon=${longitude}&units=metric&lang=pt&appid=${API_KEY}`);
+}
+
+function obterCoordenadasPorLocal(local) {
+  buscarClima(`${API_URL}?q=${encodeURIComponent(local)}&units=metric&lang=pt&appid=${API_KEY}`);
+}
+
+function buscarClima(url) {
+  mostrarCarregando();
+  fetch(url)
+    .then((response) => {
+      if (response.status === 404) throw new Error('nao-encontrado');
+      if (!response.ok) throw new Error(`Erro na solicitação: ${response.status} - ${response.statusText}`);
+      return response.json();
+    })
+    .then(exibirDadosMeteorologicos)
+    .catch((error) => {
+      console.error(error.message);
+      if (error.message === 'nao-encontrado') {
+        mostrarMensagem('Cidade não encontrada', 'Confira o nome e tente de novo.');
+      } else {
+        mostrarMensagem('Não foi possível carregar o tempo', 'Verifique sua conexão e tente de novo.');
+      }
+    });
+}
+
+// Define imagem e tema do céu a partir do código da condição da API
+function condicaoVisual(clima) {
+  const id = clima.id;
+  if (id >= 200 && id < 600) return { img: 'chuva.png', tema: 'chuva' };
+  if (id === 800) return { img: 'sol.png', tema: 'sol' };
+  return { img: 'nublado.png', tema: 'nublado' };
+}
+
+function exibirDadosMeteorologicos(data) {
+  if (!(data.main && data.weather && data.weather.length > 0)) {
+    mostrarMensagem('Dados indisponíveis', 'Tente outra cidade.');
+    return;
+  }
+
+  const clima = data.weather[0];
+  const { img, tema } = condicaoVisual(clima);
+  const noite = clima.icon && clima.icon.endsWith('n');
+  document.body.dataset.clima = noite ? 'noite' : tema;
+  document.querySelector('meta[name="theme-color"]').content = noite ? '#0c1530' : '#2f6fb5';
+
+  const arred = (n) => Math.round(n);
+  const local = data.name ? `${data.name}${data.sys && data.sys.country ? ', ' + data.sys.country : ''}` : 'Sua localização';
+  const vento = arred((data.wind && data.wind.speed ? data.wind.speed : 0) * 3.6);
+
+  weatherInfoElement.innerHTML = `
+    <div class="principal">
+      <div>
+        <p class="local">${local}</p>
+        <p class="temp">${arred(data.main.temp)}<sup>°C</sup></p>
+        <p class="descricao">${clima.description}</p>
+      </div>
+      <div class="icone">
+        <img src="${img}" alt="${clima.description}" class="weather-image flutua">
+      </div>
+      <dl class="detalhes">
+        <div><dt>Sensação</dt><dd>${arred(data.main.feels_like)}°</dd></div>
+        <div><dt>Umidade</dt><dd>${data.main.humidity}%</dd></div>
+        <div><dt>Vento</dt><dd>${vento} km/h</dd></div>
+        <div><dt>Mín. / Máx.</dt><dd>${arred(data.main.temp_min)}° / ${arred(data.main.temp_max)}°</dd></div>
+      </dl>
+    </div>`;
+}
+
+// Ao abrir, tenta a localização só se o usuário já tiver permitido antes
+if (navigator.permissions && navigator.geolocation) {
+  navigator.permissions.query({ name: 'geolocation' })
+    .then((p) => { if (p.state === 'granted') obterTemperaturaPorLocalizacao(); })
+    .catch(() => {});
+}
+</script>
 </body>
 </html>
